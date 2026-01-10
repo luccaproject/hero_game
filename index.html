@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Survival Dungeon</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
+    <style>
+        body { margin: 0; background-color: #222; display: flex; justify-content: center; align-items: center; height: 100vh; }
+    </style>
+</head>
+<body>
+    <script>
+        const config = {
+            type: Phaser.CANVAS, 
+            width: 800,
+            height: 600,
+            backgroundColor: '#2d3436',
+            physics: {
+                default: 'arcade',
+                arcade: { debug: false }
+            },
+            scene: { preload, create, update }
+        };
+
+        const game = new Phaser.Game(config);
+        let player, cursors, fomeText, paredes;
+        let fome = 100;
+
+        // Desenho do Labirinto (1 = Parede, 0 = Chão)
+        const mapa = [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+            [1,0,1,0,1,0,1,1,1,1,0,1,1,1,1,1,0,1,0,1],
+            [1,0,1,0,0,0,0,0,0,1,0,0,0,0,0,1,0,1,0,1],
+            [1,0,1,1,1,1,1,1,0,1,1,1,1,1,0,1,0,1,0,1],
+            [1,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1,0,1],
+            [1,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1],
+            [1,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+            [1,0,1,1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1],
+            [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+            [1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1],
+            [1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        ];
+
+        function preload() {
+            this.load.image('boneco', 'hero_all_black.png');
+
+            // Criando textura da parede
+            let wallCanvas = this.textures.createCanvas('wallTex', 40, 40);
+            wallCanvas.context.fillStyle = '#636e72'; // Cor de pedra
+            wallCanvas.context.fillRect(0, 0, 38, 38); // Margem para parecer blocos
+            wallCanvas.refresh();
+
+            // Criando textura da comida
+            let foodCanvas = this.textures.createCanvas('foodTex', 16, 16);
+            foodCanvas.context.fillStyle = '#2ecc71';
+            foodCanvas.context.beginPath();
+            foodCanvas.context.arc(8, 8, 8, 0, Math.PI * 2);
+            foodCanvas.context.fill();
+            foodCanvas.refresh();
+        }
+
+        function create() {
+            paredes = this.physics.add.staticGroup();
+
+            // Construindo o labirinto baseado na matriz
+            for (let row = 0; row < mapa.length; row++) {
+                for (let col = 0; col < mapa[row].length; col++) {
+                    if (mapa[row][col] === 1) {
+                        paredes.create(col * 40 + 20, row * 40 + 20, 'wallTex');
+                    }
+                }
+            }
+
+            // Criar jogador em um local livre (Ex: 60, 60)
+            player = this.physics.add.sprite(60, 60, 'boneco');
+            player.setDisplaySize(35, 35);
+            player.body.setSize(player.width * 0.7, player.height * 0.7); // Ajuste de hitbox
+            player.setCollideWorldBounds(true);
+
+            // Colisão entre jogador e paredes
+            this.physics.add.collider(player, paredes);
+
+            // Criar comidas apenas em lugares onde o mapa é 0 (chão)
+            const foods = this.physics.add.group();
+            function gerarComida() {
+                let r, c;
+                do {
+                    r = Phaser.Math.Between(1, mapa.length - 2);
+                    c = Phaser.Math.Between(1, mapa[0].length - 2);
+                } while (mapa[r][c] !== 0);
+                foods.create(c * 40 + 20, r * 40 + 20, 'foodTex');
+            }
+
+            for(let i = 0; i < 6; i++) gerarComida();
+
+            // Colisão entre comida e paredes (para não nascer dentro da parede)
+            this.physics.add.collider(foods, paredes);
+
+            cursors = this.input.keyboard.createCursorKeys();
+            fomeText = this.add.text(20, 20, 'FOME: 100%', { 
+                fontSize: '24px', 
+                fill: '#fff', 
+                backgroundColor: '#00000088' 
+            });
+
+            this.physics.add.overlap(player, foods, (p, f) => {
+                f.destroy();
+                fome = Math.min(fome + 20, 100);
+                gerarComida(); // Nasce outra em lugar seguro
+            });
+
+            this.time.addEvent({
+                delay: 1000,
+                callback: () => { if(fome > 0) fome -= 1.5; },
+                loop: true
+            });
+        }
+
+        function update() {
+            const speed = 200;
+            player.setVelocity(0);
+
+            if (fome > 0) {
+                if (cursors.left.isDown) player.setVelocityX(-speed);
+                else if (cursors.right.isDown) player.setVelocityX(speed);
+                if (cursors.up.isDown) player.setVelocityY(-speed);
+                else if (cursors.down.isDown) player.setVelocityY(speed);
+                
+                player.body.velocity.normalize().scale(speed);
+            }
+
+            fomeText.setText('FOME: ' + Math.floor(fome) + '%');
+            
+            if (fome <= 0) {
+                fomeText.setText('FIM DE JOGO!');
+                player.setTint(0xff0000);
+                this.physics.pause();
+            }
+        }
+    </script>
+</body>
+</html>
