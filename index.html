@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Hero Game</title>
+    <title>Hero Game - Survival Labirinto</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style>
         body { margin: 0; background-color: #222; display: flex; justify-content: center; align-items: center; height: 100vh; }
@@ -23,8 +23,9 @@
         };
 
         const game = new Phaser.Game(config);
-        let player, cursors, fomeText, paredes, npc;
+        let player, cursors, fomeText, paredes, npcVermelho, npcPreto;
         let fome = 100;
+        let gameOver = false;
 
         const mapa = [
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
@@ -45,6 +46,7 @@
         function preload() {
             this.load.image('boneco', 'hero_all_black.png');
 
+            // Texturas criadas via Canvas
             let wallCanvas = this.textures.createCanvas('wallTex', 40, 40);
             wallCanvas.context.fillStyle = '#636e72';
             wallCanvas.context.fillRect(0, 0, 38, 38);
@@ -57,10 +59,15 @@
             foodCanvas.context.fill();
             foodCanvas.refresh();
 
-            let npcCanvas = this.textures.createCanvas('npcTex', 30, 30);
-            npcCanvas.context.fillStyle = '#ff0000';
-            npcCanvas.context.fillRect(0, 0, 30, 30);
-            npcCanvas.refresh();
+            let npcRedCanvas = this.textures.createCanvas('npcRedTex', 30, 30);
+            npcRedCanvas.context.fillStyle = '#ff0000';
+            npcRedCanvas.context.fillRect(0, 0, 30, 30);
+            npcRedCanvas.refresh();
+
+            let npcBlackCanvas = this.textures.createCanvas('npcBlackTex', 30, 30);
+            npcBlackCanvas.context.fillStyle = '#000000';
+            npcBlackCanvas.context.fillRect(0, 0, 30, 30);
+            npcBlackCanvas.refresh();
         }
 
         function create() {
@@ -75,48 +82,21 @@
 
             player = this.physics.add.sprite(60, 60, 'boneco');
             player.setDisplaySize(45, 45);
-            // Hitbox um pouco menor para o player não trancar nas quinas
-            player.body.setSize(190, 230);
+            player.body.setSize(180, 220); // Ajuste para o player passar melhor nos vãos
             player.setCollideWorldBounds(true);
 
-            npc = this.physics.add.sprite(400, 300, 'npcTex');
-            npc.setCollideWorldBounds(true);
-            npc.setImmovable(true); 
-            npc.setBounce(0.1);
-            // Hitbox menor para o NPC navegar melhor no labirinto
-            npc.body.setSize(35, 35);
+            // Criar NPCs
+            npcVermelho = this.physics.add.sprite(400, 300, 'npcRedTex');
+            npcPreto = this.physics.add.sprite(700, 400, 'npcBlackTex');
 
+            // Configurar cada um usando a mesma inteligência reaproveitada
+            configurarNPC(this, npcVermelho, 120, false);
+            configurarNPC(this, npcPreto, 160, true);
+
+            // Colisão do player com o labirinto
             this.physics.add.collider(player, paredes);
-            this.physics.add.collider(player, npc); 
-            
-            // Lógica para o NPC não ficar preso na parede
-            this.physics.add.collider(npc, paredes, () => {
-                // Pequeno "teleporte" de 2px para garantir que ele descole da parede
-                if (npc.body.touching.left) npc.x += 2;
-                if (npc.body.touching.right) npc.x -= 2;
-                if (npc.body.touching.up) npc.y += 2;
-                if (npc.body.touching.down) npc.y -= 2;
-                
-                mudarDirecaoNPC();
-            });
 
-            const mudarDirecaoNPC = () => {
-                if (fome <= 0) return;
-                const escolhas = [
-                    {x: 120, y: 0}, {x: -120, y: 0}, 
-                    {x: 0, y: 120}, {x: 0, y: -120}
-                ];
-                const dir = Phaser.Utils.Array.GetRandom(escolhas);
-                npc.setVelocity(dir.x, dir.y);
-            };
-
-            mudarDirecaoNPC();
-            this.time.addEvent({
-                delay: 2500,
-                callback: mudarDirecaoNPC,
-                loop: true
-            });
-
+            // Comida
             const foods = this.physics.add.group();
             const gerarComida = () => {
                 let r, c;
@@ -130,10 +110,7 @@
 
             cursors = this.input.keyboard.createCursorKeys();
             fomeText = this.add.text(20, 20, 'FOME: 100%', { 
-                fontSize: '24px', 
-                fill: '#fff', 
-                backgroundColor: '#00000088',
-                padding: { x: 10, y: 5 }
+                fontSize: '24px', fill: '#fff', backgroundColor: '#00000088', padding: { x: 10, y: 5 }
             });
 
             this.physics.add.overlap(player, foods, (p, f) => {
@@ -144,12 +121,67 @@
 
             this.time.addEvent({
                 delay: 1000,
-                callback: () => { if(fome > 0) fome -= 1.5; },
+                callback: () => { if(fome > 0 && !gameOver) fome -= 1.5; },
                 loop: true
             });
         }
 
+        function mudarDirecao(entidade, velocidade) {
+            if (gameOver || fome <= 0) {
+                entidade.setVelocity(0);
+                return;
+            }
+            const escolhas = [
+                {x: velocidade, y: 0}, {x: -velocidade, y: 0}, 
+                {x: 0, y: velocidade}, {x: 0, y: -velocidade}
+            ];
+            const dir = Phaser.Utils.Array.GetRandom(escolhas);
+            entidade.setVelocity(dir.x, dir.y);
+        }
+
+        function configurarNPC(scene, entidade, velocidade, ehInimigo) {
+            entidade.setCollideWorldBounds(true);
+            entidade.setImmovable(true); // Impede o player de empurrar o NPC
+            entidade.body.setSize(28, 28); // Hitbox levemente menor que o corredor (40px) para não travar
+
+            // Inteligência para não bugar na parede (Reaproveitada)
+            scene.physics.add.collider(entidade, paredes, () => {
+                if (entidade.body.touching.left) entidade.x += 5;
+                if (entidade.body.touching.right) entidade.x -= 5;
+                if (entidade.body.touching.up) entidade.y += 5;
+                if (entidade.body.touching.down) entidade.y -= 5;
+                mudarDirecao(entidade, velocidade);
+            });
+
+            if (ehInimigo) {
+                // NPC PRETO: Se tocar, Game Over
+                scene.physics.add.overlap(player, entidade, () => finalizarJogo(scene, 'VOCÊ MORREU!'));
+            } else {
+                // NPC VERMELHO: Apenas bloqueia a passagem
+                scene.physics.add.collider(player, entidade);
+            }
+
+            mudarDirecao(entidade, velocidade);
+            
+            scene.time.addEvent({
+                delay: 2500,
+                callback: () => mudarDirecao(entidade, velocidade),
+                loop: true
+            });
+        }
+
+        function finalizarJogo(scene, mensagem) {
+            if (gameOver) return;
+            gameOver = true;
+            fome = 0;
+            fomeText.setText(mensagem);
+            player.setTint(0xff0000);
+            scene.physics.pause();
+        }
+
         function update() {
+            if (gameOver) return;
+
             const speed = 200;
             player.setVelocity(0);
 
@@ -159,7 +191,6 @@
                 if (cursors.up.isDown) player.setVelocityY(-speed);
                 else if (cursors.down.isDown) player.setVelocityY(speed);
                 
-                // Normaliza para não correr mais rápido na diagonal
                 if (player.body.velocity.x !== 0 && player.body.velocity.y !== 0) {
                     player.body.velocity.normalize().scale(speed);
                 }
@@ -168,10 +199,7 @@
             fomeText.setText('FOME: ' + Math.floor(fome) + '%');
             
             if (fome <= 0) {
-                fomeText.setText('FIM DE JOGO!');
-                player.setTint(0xff0000);
-                this.physics.pause();
-                npc.setVelocity(0, 0);
+                finalizarJogo(this, 'FIM DE JOGO!');
             }
         }
     </script>
