@@ -2,36 +2,50 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Hero Game - Smart Controls</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Hero Game - Ajustado</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style>
         body { 
             margin: 0; 
-            background-color: #222; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
+            padding: 0;
+            background-color: #111; 
             height: 100vh; 
+            width: 100vw;
             overflow: hidden; 
             font-family: Arial, sans-serif;
-            touch-action: none; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            touch-action: none; /* Impede zoom e rolagens */
         }
 
-        /* --- ESTILOS DA INTERFACE (MOBILE/HUD) --- */
+        /* Contêiner que segura o jogo para centralizar perfeitamente */
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* --- INTERFACE MÓVEL (HUD) --- */
         .controls-container {
             position: absolute;
+            top: 0; left: 0;
             width: 100%;
             height: 100%;
             pointer-events: none; 
-            z-index: 10;
-            display: none; /* Começa oculto, o JS ativa se for mobile */
+            z-index: 100; /* Garante que fique ACIMA do jogo */
+            display: none; /* O JavaScript vai ligar isso se for touch */
         }
 
         .btn {
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.5);
-            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(2px);
+            border-radius: 12px;
             color: white;
             display: flex;
             justify-content: center;
@@ -41,19 +55,27 @@
             pointer-events: auto; 
             cursor: pointer;
             touch-action: manipulation;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
-        .btn:active { background: rgba(255, 255, 255, 0.5); }
+        
+        /* Efeito visual ao tocar */
+        .btn:active { 
+            background: rgba(255, 255, 255, 0.4); 
+            transform: scale(0.95);
+        }
 
         #dpad {
             position: absolute;
-            bottom: 20px;
-            left: 20px;
-            width: 150px;
-            height: 150px;
+            bottom: 30px; /* Mais afastado da borda */
+            left: 30px;
+            width: 160px;
+            height: 160px;
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
             grid-template-rows: 1fr 1fr 1fr;
+            gap: 5px; /* Espaço entre botões */
         }
+        
         #btn-up { grid-column: 2; grid-row: 1; }
         #btn-left { grid-column: 1; grid-row: 2; }
         #btn-right { grid-column: 3; grid-row: 2; }
@@ -66,44 +88,48 @@
             width: 50px;
             height: 50px;
             border-radius: 50%;
-            font-size: 14px;
+            font-size: 16px;
             font-weight: bold;
         }
 
         #btn-reset {
             position: absolute;
-            top: 65%;
+            top: 60%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 200px;
-            height: 60px;
+            width: 220px;
+            height: 70px;
             background-color: #e74c3c;
             font-weight: bold;
             display: none; 
-            z-index: 20;
+            z-index: 200;
+            font-size: 20px;
+            box-shadow: 0 0 15px rgba(231, 76, 60, 0.6);
         }
     </style>
 </head>
 <body>
 
-    <div class="controls-container" id="mobile-controls">
-        <div id="btn-pause" class="btn">||</div>
-        <div id="btn-reset" class="btn">REINICIAR</div>
-        <div id="dpad">
-            <div id="btn-up" class="btn">▲</div>
-            <div id="btn-left" class="btn">◄</div>
-            <div id="btn-right" class="btn">►</div>
-            <div id="btn-down" class="btn">▼</div>
+    <div id="game-container">
+        <div class="controls-container" id="mobile-controls">
+            <div id="btn-pause" class="btn">||</div>
+            <div id="btn-reset" class="btn">REINICIAR JOGO</div>
+            <div id="dpad">
+                <div id="btn-up" class="btn">▲</div>
+                <div id="btn-left" class="btn">◄</div>
+                <div id="btn-right" class="btn">►</div>
+                <div id="btn-down" class="btn">▼</div>
+            </div>
         </div>
     </div>
 
     <script>
-        // --- DETECÇÃO DE DISPOSITIVO MÓVEL ---
-        // Verifica se o User Agent contém palavras chave de mobile
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
-        // Se for mobile, mostra os controles. Se for PC, mantém oculto (display: none do CSS)
-        if (isMobile) {
+        // --- DETECÇÃO DE DISPOSITIVO DE TOQUE (Mais robusta) ---
+        // Verifica se a tela suporta toque (celular/tablet) OU se a tela é pequena
+        const isTouchDevice = (('ontouchstart' in window) || (navigator.maxTouchPoints > 0));
+        
+        // Se for touch, mostra os controles imediatamente
+        if (isTouchDevice) {
             document.getElementById('mobile-controls').style.display = 'block';
         }
 
@@ -112,13 +138,14 @@
 
         function setupBtn(id, dir) {
             const btn = document.getElementById(id);
-            const start = (e) => { e.preventDefault(); setMove(dir, true); };
-            const end = (e) => { e.preventDefault(); setMove(dir, false); };
+            // Previne comportamento padrão para não selecionar texto ou dar zoom
+            const start = (e) => { if(e.cancelable) e.preventDefault(); setMove(dir, true); };
+            const end = (e) => { if(e.cancelable) e.preventDefault(); setMove(dir, false); };
             
+            btn.addEventListener('touchstart', start, {passive: false});
+            btn.addEventListener('touchend', end);
             btn.addEventListener('mousedown', start);
             btn.addEventListener('mouseup', end);
-            btn.addEventListener('touchstart', start);
-            btn.addEventListener('touchend', end);
             btn.addEventListener('mouseleave', end); 
         }
 
@@ -129,31 +156,34 @@
             if(dir === 'down') moveDown = state;
         }
 
-        // Só configura os listeners se estiver no mobile (evita erros no console ou processamento inútil)
-        if (isMobile) {
+        if (isTouchDevice) {
             setupBtn('btn-left', 'left');
             setupBtn('btn-right', 'right');
             setupBtn('btn-up', 'up');
             setupBtn('btn-down', 'down');
 
-            document.getElementById('btn-pause').addEventListener('click', () => {
-                if(!gameOver) togglePause();
-            });
+            const btnPause = document.getElementById('btn-pause');
+            btnPause.addEventListener('click', (e) => { e.preventDefault(); if(!gameOver) togglePause(); });
+            btnPause.addEventListener('touchstart', (e) => { e.preventDefault(); if(!gameOver) togglePause(); });
 
-            document.getElementById('btn-reset').addEventListener('click', () => {
-                if(gameOver) restartGame();
-            });
+            const btnReset = document.getElementById('btn-reset');
+            btnReset.addEventListener('click', (e) => { e.preventDefault(); if(gameOver) restartGame(); });
+            btnReset.addEventListener('touchstart', (e) => { e.preventDefault(); if(gameOver) restartGame(); });
         }
 
         // --- CÓDIGO DO PHASER ---
 
         const config = {
             type: Phaser.AUTO,
+            // Ajuste importante: define o pai para centralizar
+            parent: 'game-container', 
             width: 800,
             height: 600,
             backgroundColor: '#2d3436',
             scale: {
+                // FIT garante que cabe na tela sem esticar
                 mode: Phaser.Scale.FIT,
+                // CENTER_BOTH garante que fica no meio exato
                 autoCenter: Phaser.Scale.CENTER_BOTH
             },
             physics: { default: 'arcade', arcade: { debug: false } },
@@ -219,8 +249,8 @@
             currentScene = this;
             fome = 100; pontos = 0; vidas = 3; nivel = 1; gameOver = false; isPaused = false;
             
-            // Garante que reset suma no início
-            if(isMobile) document.getElementById('btn-reset').style.display = 'none';
+            // Garante estado inicial do botão reset
+            if(isTouchDevice) document.getElementById('btn-reset').style.display = 'none';
 
             paredes = this.physics.add.staticGroup();
             mapaDesign.forEach((row, y) => {
@@ -374,12 +404,10 @@
                 gameOver = true;
                 this.physics.pause();
                 
-                if (isMobile) {
-                    // SE FOR MOBILE: Mostra botão e msg simples
+                if (isTouchDevice) {
                     msgText.setText('VOCÊ MORREU!').setVisible(true);
                     document.getElementById('btn-reset').style.display = 'flex';
                 } else {
-                    // SE FOR PC: Mostra instrução de teclado e NÃO mostra botão
                     msgText.setText('VOCÊ MORREU!\nESPAÇO PARA REINICIAR').setVisible(true);
                 }
 
