@@ -2,29 +2,171 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Hero Game - NPC Vermelho Trator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Hero Game - Smart Controls</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style>
-        body { margin: 0; background-color: #222; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+        body { 
+            margin: 0; 
+            background-color: #222; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            overflow: hidden; 
+            font-family: Arial, sans-serif;
+            touch-action: none; 
+        }
+
+        /* --- ESTILOS DA INTERFACE (MOBILE/HUD) --- */
+        .controls-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; 
+            z-index: 10;
+            display: none; /* Começa oculto, o JS ativa se for mobile */
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            user-select: none;
+            pointer-events: auto; 
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        .btn:active { background: rgba(255, 255, 255, 0.5); }
+
+        #dpad {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 150px;
+            height: 150px;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 1fr 1fr 1fr;
+        }
+        #btn-up { grid-column: 2; grid-row: 1; }
+        #btn-left { grid-column: 1; grid-row: 2; }
+        #btn-right { grid-column: 3; grid-row: 2; }
+        #btn-down { grid-column: 2; grid-row: 3; }
+
+        #btn-pause {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        #btn-reset {
+            position: absolute;
+            top: 65%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 60px;
+            background-color: #e74c3c;
+            font-weight: bold;
+            display: none; 
+            z-index: 20;
+        }
     </style>
 </head>
 <body>
+
+    <div class="controls-container" id="mobile-controls">
+        <div id="btn-pause" class="btn">||</div>
+        <div id="btn-reset" class="btn">REINICIAR</div>
+        <div id="dpad">
+            <div id="btn-up" class="btn">▲</div>
+            <div id="btn-left" class="btn">◄</div>
+            <div id="btn-right" class="btn">►</div>
+            <div id="btn-down" class="btn">▼</div>
+        </div>
+    </div>
+
     <script>
+        // --- DETECÇÃO DE DISPOSITIVO MÓVEL ---
+        // Verifica se o User Agent contém palavras chave de mobile
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+        // Se for mobile, mostra os controles. Se for PC, mantém oculto (display: none do CSS)
+        if (isMobile) {
+            document.getElementById('mobile-controls').style.display = 'block';
+        }
+
+        // --- CONTROLES VIRTUAIS ---
+        let moveLeft = false, moveRight = false, moveUp = false, moveDown = false;
+
+        function setupBtn(id, dir) {
+            const btn = document.getElementById(id);
+            const start = (e) => { e.preventDefault(); setMove(dir, true); };
+            const end = (e) => { e.preventDefault(); setMove(dir, false); };
+            
+            btn.addEventListener('mousedown', start);
+            btn.addEventListener('mouseup', end);
+            btn.addEventListener('touchstart', start);
+            btn.addEventListener('touchend', end);
+            btn.addEventListener('mouseleave', end); 
+        }
+
+        function setMove(dir, state) {
+            if(dir === 'left') moveLeft = state;
+            if(dir === 'right') moveRight = state;
+            if(dir === 'up') moveUp = state;
+            if(dir === 'down') moveDown = state;
+        }
+
+        // Só configura os listeners se estiver no mobile (evita erros no console ou processamento inútil)
+        if (isMobile) {
+            setupBtn('btn-left', 'left');
+            setupBtn('btn-right', 'right');
+            setupBtn('btn-up', 'up');
+            setupBtn('btn-down', 'down');
+
+            document.getElementById('btn-pause').addEventListener('click', () => {
+                if(!gameOver) togglePause();
+            });
+
+            document.getElementById('btn-reset').addEventListener('click', () => {
+                if(gameOver) restartGame();
+            });
+        }
+
+        // --- CÓDIGO DO PHASER ---
+
         const config = {
             type: Phaser.AUTO,
             width: 800,
             height: 600,
             backgroundColor: '#2d3436',
+            scale: {
+                mode: Phaser.Scale.FIT,
+                autoCenter: Phaser.Scale.CENTER_BOTH
+            },
             physics: { default: 'arcade', arcade: { debug: false } },
             scene: { preload, create, update }
         };
 
         const game = new Phaser.Game(config);
 
-        let player, cursors, keySpace, paredes, alimentos, inimigosPretos, npcsVermelhos, powerUps;
+        let player, cursors, keysWASD, keySpace, paredes, alimentos, inimigosPretos, npcsVermelhos, powerUps;
         let fome = 100, pontos = 0, vidas = 3, nivel = 1;
         let gameOver = false, isPaused = false;
         let fomeText, pontosText, vidasText, nivelText, msgText;
+        let currentScene = null; 
 
         const mapaDesign = [
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
@@ -74,7 +216,11 @@
         }
 
         function create() {
+            currentScene = this;
             fome = 100; pontos = 0; vidas = 3; nivel = 1; gameOver = false; isPaused = false;
+            
+            // Garante que reset suma no início
+            if(isMobile) document.getElementById('btn-reset').style.display = 'none';
 
             paredes = this.physics.add.staticGroup();
             mapaDesign.forEach((row, y) => {
@@ -99,12 +245,8 @@
             
             this.physics.add.overlap(player, alimentos, coletarComida, null, this);
             this.physics.add.overlap(player, inimigosPretos, levarDano, null, this);
-            
-            // Colisão com o Vermelho: Player é bloqueado/empurrado
             this.physics.add.collider(player, npcsVermelhos); 
-            
             this.physics.add.overlap(player, powerUps, pegarPowerUp, null, this);
-
             this.physics.add.collider(inimigosPretos, paredes, resolverColisaoNPC, null, this);
             this.physics.add.collider(npcsVermelhos, paredes, resolverColisaoNPC, null, this);
 
@@ -117,10 +259,28 @@
             msgText = this.add.text(400, 300, '', { fontSize: '40px', fill: '#fff', align: 'center', backgroundColor: '#e67e22', padding: {x:20, y:10} }).setOrigin(0.5).setDepth(100).setVisible(false);
 
             cursors = this.input.keyboard.createCursorKeys();
+            keysWASD = this.input.keyboard.addKeys('W,A,S,D');
             keySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
             this.time.addEvent({ delay: 1000, callback: () => { if(!isPaused && !gameOver) fome -= (1.2 + nivel*0.3); }, loop: true });
             this.time.addEvent({ delay: 3000, callback: randomizarTodosNPCs, loop: true });
+        }
+
+        function togglePause() {
+            if(!currentScene) return;
+            isPaused = !isPaused;
+            if(isPaused) { 
+                currentScene.physics.pause(); 
+                msgText.setText('PAUSADO').setVisible(true); 
+            } else { 
+                currentScene.physics.resume(); 
+                msgText.setVisible(false); 
+            }
+        }
+
+        function restartGame() {
+            if(!currentScene) return;
+            currentScene.scene.restart();
         }
 
         function resolverColisaoNPC(npc, parede) {
@@ -145,24 +305,22 @@
 
         function update() {
             if(gameOver) {
-                if(Phaser.Input.Keyboard.JustDown(keySpace)) this.scene.restart();
+                if(Phaser.Input.Keyboard.JustDown(keySpace)) restartGame();
                 return;
             }
 
-            if(Phaser.Input.Keyboard.JustDown(keySpace)) {
-                isPaused = !isPaused;
-                if(isPaused) { this.physics.pause(); msgText.setText('PAUSADO').setVisible(true); } 
-                else { this.physics.resume(); msgText.setVisible(false); }
-            }
+            if(Phaser.Input.Keyboard.JustDown(keySpace)) togglePause();
 
             if(isPaused) return;
 
             let speed = player.isPowered ? 350 : 200;
             player.setVelocity(0);
-            if (cursors.left.isDown) player.setVelocityX(-speed);
-            else if (cursors.right.isDown) player.setVelocityX(speed);
-            if (cursors.up.isDown) player.setVelocityY(-speed);
-            else if (cursors.down.isDown) player.setVelocityY(speed);
+
+            if (cursors.left.isDown || keysWASD.A.isDown || moveLeft) player.setVelocityX(-speed);
+            else if (cursors.right.isDown || keysWASD.D.isDown || moveRight) player.setVelocityX(speed);
+            
+            if (cursors.up.isDown || keysWASD.W.isDown || moveUp) player.setVelocityY(-speed);
+            else if (cursors.down.isDown || keysWASD.S.isDown || moveDown) player.setVelocityY(speed);
 
             fomeText.setText(`FOME: ${Math.floor(fome)}%`);
             if(fome <= 0) levarDano.call(this, player, null);
@@ -185,11 +343,8 @@
             let grupo = (tipo === 'npcBlack' ? inimigosPretos : npcsVermelhos);
             let npc = spawnItem(grupo, tipo);
             npc.setBounce(1).setCollideWorldBounds(true);
-            
             let vel = (tipo === 'npcBlack') ? 160 : 110;
             npc.setVelocity(Phaser.Utils.Array.GetRandom([-vel, vel]), Phaser.Utils.Array.GetRandom([-vel, vel]));
-
-            // AJUSTE: O NPC Vermelho agora é "pesado" e "imóvel" para o player
             if (tipo === 'npcRed') {
                 npc.setImmovable(true);
                 npc.body.setMass(100); 
@@ -214,10 +369,20 @@
             if(p.isInvincible) return;
             vidas--;
             vidasText.setText('❤️ '.repeat(Math.max(0, vidas)));
+            
             if(vidas <= 0) {
                 gameOver = true;
                 this.physics.pause();
-                msgText.setText('VOCÊ MORREU!\nESPAÇO PARA RECOMECAR').setVisible(true);
+                
+                if (isMobile) {
+                    // SE FOR MOBILE: Mostra botão e msg simples
+                    msgText.setText('VOCÊ MORREU!').setVisible(true);
+                    document.getElementById('btn-reset').style.display = 'flex';
+                } else {
+                    // SE FOR PC: Mostra instrução de teclado e NÃO mostra botão
+                    msgText.setText('VOCÊ MORREU!\nESPAÇO PARA REINICIAR').setVisible(true);
+                }
+
             } else {
                 fome = 100;
                 p.isInvincible = true;
