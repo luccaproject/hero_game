@@ -3,115 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Hero Game - Ajustado</title>
+    <title>Hero Game - Final Version</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body { 
-            margin: 0; 
-            padding: 0;
-            background-color: #111; 
+            background-color: #1a1a1a; 
             height: 100vh; 
             width: 100vw;
             overflow: hidden; 
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
-            touch-action: none; /* Impede zoom e rolagens */
+            touch-action: none; 
         }
 
-        /* Contêiner que segura o jogo para centralizar perfeitamente */
-        #game-container {
+        /* Centraliza o canvas e a interface */
+        #game-wrapper {
             position: relative;
-            width: 100%;
-            height: 100%;
             display: flex;
             justify-content: center;
             align-items: center;
-        }
-
-        /* --- INTERFACE MÓVEL (HUD) --- */
-        .controls-container {
-            position: absolute;
-            top: 0; left: 0;
             width: 100%;
             height: 100%;
+        }
+
+        /* --- INTERFACE MOBILE --- */
+        #mobile-controls {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
             pointer-events: none; 
-            z-index: 100; /* Garante que fique ACIMA do jogo */
-            display: none; /* O JavaScript vai ligar isso se for touch */
+            z-index: 999; 
+            display: none; 
         }
 
         .btn {
-            background: rgba(255, 255, 255, 0.15);
-            border: 2px solid rgba(255, 255, 255, 0.4);
-            backdrop-filter: blur(2px);
-            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(5px);
+            border-radius: 15px;
             color: white;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 24px;
             user-select: none;
             pointer-events: auto; 
             cursor: pointer;
             touch-action: manipulation;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
         
-        /* Efeito visual ao tocar */
         .btn:active { 
-            background: rgba(255, 255, 255, 0.4); 
-            transform: scale(0.95);
+            background: rgba(255, 255, 255, 0.3); 
+            transform: scale(0.92);
         }
 
+        /* D-PAD Aumentado */
         #dpad {
             position: absolute;
-            bottom: 30px; /* Mais afastado da borda */
-            left: 30px;
-            width: 160px;
-            height: 160px;
+            bottom: 40px; 
+            left: 40px;
+            width: 220px; /* Aumentado de 160 para 220 */
+            height: 220px;
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
             grid-template-rows: 1fr 1fr 1fr;
-            gap: 5px; /* Espaço entre botões */
+            gap: 10px;
         }
         
-        #btn-up { grid-column: 2; grid-row: 1; }
-        #btn-left { grid-column: 1; grid-row: 2; }
-        #btn-right { grid-column: 3; grid-row: 2; }
-        #btn-down { grid-column: 2; grid-row: 3; }
+        #btn-up { grid-column: 2; grid-row: 1; font-size: 40px; }
+        #btn-left { grid-column: 1; grid-row: 2; font-size: 40px; }
+        #btn-right { grid-column: 3; grid-row: 2; font-size: 40px; }
+        #btn-down { grid-column: 2; grid-row: 3; font-size: 40px; }
 
         #btn-pause {
             position: absolute;
-            top: 20px;
-            right: 20px;
-            width: 50px;
-            height: 50px;
+            top: 25px;
+            right: 25px;
+            width: 65px;
+            height: 65px;
             border-radius: 50%;
-            font-size: 16px;
+            font-size: 20px;
             font-weight: bold;
         }
 
         #btn-reset {
             position: absolute;
-            top: 60%;
+            top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 220px;
-            height: 70px;
-            background-color: #e74c3c;
+            width: 280px;
+            height: 85px;
+            background-color: #c0392b;
             font-weight: bold;
             display: none; 
-            z-index: 200;
-            font-size: 20px;
-            box-shadow: 0 0 15px rgba(231, 76, 60, 0.6);
+            font-size: 24px;
+            border: 4px solid #fff;
         }
     </style>
 </head>
 <body>
 
-    <div id="game-container">
-        <div class="controls-container" id="mobile-controls">
+    <div id="game-wrapper">
+        <div id="mobile-controls">
             <div id="btn-pause" class="btn">||</div>
             <div id="btn-reset" class="btn">REINICIAR JOGO</div>
             <div id="dpad">
@@ -121,26 +119,19 @@
                 <div id="btn-down" class="btn">▼</div>
             </div>
         </div>
-    </div>
+        </div>
 
     <script>
-        // --- DETECÇÃO DE DISPOSITIVO DE TOQUE (Mais robusta) ---
-        // Verifica se a tela suporta toque (celular/tablet) OU se a tela é pequena
+        // Detecção robusta de touch
         const isTouchDevice = (('ontouchstart' in window) || (navigator.maxTouchPoints > 0));
-        
-        // Se for touch, mostra os controles imediatamente
-        if (isTouchDevice) {
-            document.getElementById('mobile-controls').style.display = 'block';
-        }
+        if (isTouchDevice) document.getElementById('mobile-controls').style.display = 'block';
 
-        // --- CONTROLES VIRTUAIS ---
         let moveLeft = false, moveRight = false, moveUp = false, moveDown = false;
 
         function setupBtn(id, dir) {
             const btn = document.getElementById(id);
-            // Previne comportamento padrão para não selecionar texto ou dar zoom
-            const start = (e) => { if(e.cancelable) e.preventDefault(); setMove(dir, true); };
-            const end = (e) => { if(e.cancelable) e.preventDefault(); setMove(dir, false); };
+            const start = (e) => { e.preventDefault(); setMove(dir, true); };
+            const end = (e) => { e.preventDefault(); setMove(dir, false); };
             
             btn.addEventListener('touchstart', start, {passive: false});
             btn.addEventListener('touchend', end);
@@ -161,29 +152,24 @@
             setupBtn('btn-right', 'right');
             setupBtn('btn-up', 'up');
             setupBtn('btn-down', 'down');
-
-            const btnPause = document.getElementById('btn-pause');
-            btnPause.addEventListener('click', (e) => { e.preventDefault(); if(!gameOver) togglePause(); });
-            btnPause.addEventListener('touchstart', (e) => { e.preventDefault(); if(!gameOver) togglePause(); });
-
-            const btnReset = document.getElementById('btn-reset');
-            btnReset.addEventListener('click', (e) => { e.preventDefault(); if(gameOver) restartGame(); });
-            btnReset.addEventListener('touchstart', (e) => { e.preventDefault(); if(gameOver) restartGame(); });
+            
+            document.getElementById('btn-pause').addEventListener('touchstart', (e) => { 
+                e.preventDefault(); if(!gameOver) togglePause(); 
+            });
+            document.getElementById('btn-reset').addEventListener('touchstart', (e) => { 
+                e.preventDefault(); if(gameOver) restartGame(); 
+            });
         }
 
-        // --- CÓDIGO DO PHASER ---
-
+        // --- PHASER CONFIG ---
         const config = {
             type: Phaser.AUTO,
-            // Ajuste importante: define o pai para centralizar
-            parent: 'game-container', 
+            parent: 'game-wrapper',
             width: 800,
             height: 600,
             backgroundColor: '#2d3436',
             scale: {
-                // FIT garante que cabe na tela sem esticar
                 mode: Phaser.Scale.FIT,
-                // CENTER_BOTH garante que fica no meio exato
                 autoCenter: Phaser.Scale.CENTER_BOTH
             },
             physics: { default: 'arcade', arcade: { debug: false } },
@@ -193,10 +179,8 @@
         const game = new Phaser.Game(config);
 
         let player, cursors, keysWASD, keySpace, paredes, alimentos, inimigosPretos, npcsVermelhos, powerUps;
-        let fome = 100, pontos = 0, vidas = 3, nivel = 1;
-        let gameOver = false, isPaused = false;
-        let fomeText, pontosText, vidasText, nivelText, msgText;
-        let currentScene = null; 
+        let fome = 100, pontos = 0, vidas = 3, nivel = 1, gameOver = false, isPaused = false;
+        let fomeText, pontosText, vidasText, nivelText, msgText, currentScene;
 
         const mapaDesign = [
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
@@ -218,26 +202,20 @@
 
         function preload() {
             this.load.image('boneco', 'hero_all_black.png');
-            
-            const genTex = (key, color, w, h) => {
-                if(this.textures.exists(key)) return;
-                let canvas = this.textures.createCanvas(key, w, h);
-                canvas.context.fillStyle = color;
+            const genTex = (k, c, w, h) => {
+                let canvas = this.textures.createCanvas(k, w, h);
+                canvas.context.fillStyle = c;
                 canvas.context.fillRect(0, 0, w, h);
-                canvas.context.strokeStyle = "rgba(0,0,0,0.3)";
-                canvas.context.strokeRect(0, 0, w, h);
                 canvas.refresh();
             };
-            const genCirc = (key, color, r) => {
-                if(this.textures.exists(key)) return;
-                let canvas = this.textures.createCanvas(key, r*2, r*2);
-                canvas.context.fillStyle = color;
+            const genCirc = (k, c, r) => {
+                let canvas = this.textures.createCanvas(k, r*2, r*2);
+                canvas.context.fillStyle = c;
                 canvas.context.beginPath();
                 canvas.context.arc(r, r, r, 0, Math.PI*2);
                 canvas.context.fill();
                 canvas.refresh();
             };
-
             genTex('wall', '#636e72', 40, 40);
             genCirc('food', '#2ecc71', 8);
             genTex('speedPower', '#00d2d3', 20, 20);
@@ -248,15 +226,11 @@
         function create() {
             currentScene = this;
             fome = 100; pontos = 0; vidas = 3; nivel = 1; gameOver = false; isPaused = false;
-            
-            // Garante estado inicial do botão reset
             if(isTouchDevice) document.getElementById('btn-reset').style.display = 'none';
 
             paredes = this.physics.add.staticGroup();
             mapaDesign.forEach((row, y) => {
-                row.forEach((value, x) => {
-                    if (value === 1) paredes.create(x * 40 + 20, y * 40 + 20, 'wall');
-                });
+                row.forEach((v, x) => { if(v === 1) paredes.create(x*40+20, y*40+20, 'wall'); });
             });
 
             player = this.physics.add.sprite(60, 60, 'boneco').setDisplaySize(38, 38);
@@ -280,12 +254,11 @@
             this.physics.add.collider(inimigosPretos, paredes, resolverColisaoNPC, null, this);
             this.physics.add.collider(npcsVermelhos, paredes, resolverColisaoNPC, null, this);
 
-            const style = { fontSize: '24px', fill: '#f1c40f', backgroundColor: '#000000aa', padding: {x:10, y:5} };
-            fomeText = this.add.text(20, 20, 'FOME: 100%', { ...style, fill: '#2ecc71' });
-            pontosText = this.add.text(780, 20, 'PONTOS: 0', style).setOrigin(1, 0);
+            const s = { fontSize: '24px', fill: '#f1c40f', backgroundColor: '#000000aa', padding: {x:10, y:5} };
+            fomeText = this.add.text(20, 20, 'FOME: 100%', { ...s, fill: '#2ecc71' });
+            pontosText = this.add.text(780, 20, 'PONTOS: 0', s).setOrigin(1, 0);
             vidasText = this.add.text(400, 20, '❤️ ❤️ ❤️', { fontSize: '24px' }).setOrigin(0.5, 0);
             nivelText = this.add.text(400, 50, 'NÍVEL: 1', { fontSize: '16px', fill: '#fff' }).setOrigin(0.5, 0);
-            
             msgText = this.add.text(400, 300, '', { fontSize: '40px', fill: '#fff', align: 'center', backgroundColor: '#e67e22', padding: {x:20, y:10} }).setOrigin(0.5).setDepth(100).setVisible(false);
 
             cursors = this.input.keyboard.createCursorKeys();
@@ -297,98 +270,67 @@
         }
 
         function togglePause() {
-            if(!currentScene) return;
             isPaused = !isPaused;
-            if(isPaused) { 
-                currentScene.physics.pause(); 
-                msgText.setText('PAUSADO').setVisible(true); 
-            } else { 
-                currentScene.physics.resume(); 
-                msgText.setVisible(false); 
-            }
+            if(isPaused) { currentScene.physics.pause(); msgText.setText('PAUSADO').setVisible(true); } 
+            else { currentScene.physics.resume(); msgText.setVisible(false); }
         }
 
-        function restartGame() {
-            if(!currentScene) return;
-            currentScene.scene.restart();
-        }
+        function restartGame() { currentScene.scene.restart(); }
 
         function resolverColisaoNPC(npc, parede) {
-            let baseVel = (npc.texture.key === 'npcBlack') ? 160 : 110;
-            let angulo = Phaser.Math.Between(0, 3) * 90 + Phaser.Math.Between(-15, 15);
-            this.physics.velocityFromAngle(angulo, baseVel, npc.body.velocity);
+            let v = (npc.texture.key === 'npcBlack') ? 160 : 110;
+            this.physics.velocityFromAngle(Phaser.Math.Between(0, 3)*90, v, npc.body.velocity);
         }
 
         function randomizarTodosNPCs() {
-            [inimigosPretos, npcsVermelhos].forEach(grupo => {
-                grupo.getChildren().forEach(npc => {
-                    let baseVel = (npc.texture.key === 'npcBlack') ? 160 : 110;
-                    if(Math.random() > 0.4) {
-                        npc.setVelocity(
-                            Phaser.Utils.Array.GetRandom([-baseVel, baseVel]), 
-                            Phaser.Utils.Array.GetRandom([-baseVel, baseVel])
-                        );
-                    }
+            [inimigosPretos, npcsVermelhos].forEach(g => {
+                g.getChildren().forEach(npc => {
+                    let v = (npc.texture.key === 'npcBlack') ? 160 : 110;
+                    if(Math.random() > 0.4) npc.setVelocity(Phaser.Utils.Array.GetRandom([-v, v]), Phaser.Utils.Array.GetRandom([-v, v]));
                 });
             });
         }
 
         function update() {
-            if(gameOver) {
-                if(Phaser.Input.Keyboard.JustDown(keySpace)) restartGame();
-                return;
-            }
-
+            if(gameOver) { if(Phaser.Input.Keyboard.JustDown(keySpace)) restartGame(); return; }
             if(Phaser.Input.Keyboard.JustDown(keySpace)) togglePause();
-
             if(isPaused) return;
 
-            let speed = player.isPowered ? 350 : 200;
+            let spd = player.isPowered ? 350 : 200;
             player.setVelocity(0);
 
-            if (cursors.left.isDown || keysWASD.A.isDown || moveLeft) player.setVelocityX(-speed);
-            else if (cursors.right.isDown || keysWASD.D.isDown || moveRight) player.setVelocityX(speed);
-            
-            if (cursors.up.isDown || keysWASD.W.isDown || moveUp) player.setVelocityY(-speed);
-            else if (cursors.down.isDown || keysWASD.S.isDown || moveDown) player.setVelocityY(speed);
+            if (cursors.left.isDown || keysWASD.A.isDown || moveLeft) player.setVelocityX(-spd);
+            else if (cursors.right.isDown || keysWASD.D.isDown || moveRight) player.setVelocityX(spd);
+            if (cursors.up.isDown || keysWASD.W.isDown || moveUp) player.setVelocityY(-spd);
+            else if (cursors.down.isDown || keysWASD.S.isDown || moveDown) player.setVelocityY(spd);
 
             fomeText.setText(`FOME: ${Math.floor(fome)}%`);
             if(fome <= 0) levarDano.call(this, player, null);
         }
 
-        function spawnItem(grupo, tex) {
-            let x, y, val = false;
-            while(!val) {
-                let r = Phaser.Math.Between(1, mapaDesign.length - 2);
-                let c = Phaser.Math.Between(1, mapaDesign[0].length - 2);
-                if(mapaDesign[r][c] === 0) {
-                    x = c * 40 + 20; y = r * 40 + 20;
-                    val = true;
-                }
+        function spawnItem(g, t) {
+            let x, y, v = false;
+            while(!v) {
+                let r = Phaser.Math.Between(1, mapaDesign.length - 2), c = Phaser.Math.Between(1, mapaDesign[0].length - 2);
+                if(mapaDesign[r][c] === 0) { x = c * 40 + 20; y = r * 40 + 20; v = true; }
             }
-            return grupo.create(x, y, tex);
+            return g.create(x, y, t);
         }
 
-        function adicionarNPC(scene, tipo) {
-            let grupo = (tipo === 'npcBlack' ? inimigosPretos : npcsVermelhos);
-            let npc = spawnItem(grupo, tipo);
-            npc.setBounce(1).setCollideWorldBounds(true);
-            let vel = (tipo === 'npcBlack') ? 160 : 110;
-            npc.setVelocity(Phaser.Utils.Array.GetRandom([-vel, vel]), Phaser.Utils.Array.GetRandom([-vel, vel]));
-            if (tipo === 'npcRed') {
-                npc.setImmovable(true);
-                npc.body.setMass(100); 
-            }
+        function adicionarNPC(s, t) {
+            let g = (t === 'npcBlack' ? inimigosPretos : npcsVermelhos);
+            let n = spawnItem(g, t);
+            n.setBounce(1).setCollideWorldBounds(true);
+            let v = (t === 'npcBlack') ? 160 : 110;
+            n.setVelocity(v, v);
+            if (t === 'npcRed') n.setImmovable(true);
         }
 
         function coletarComida(p, f) {
-            f.destroy();
-            fome = Math.min(fome + 20, 100);
-            pontos += 10;
+            f.destroy(); fome = Math.min(fome + 20, 100); pontos += 10;
             pontosText.setText('PONTOS: ' + pontos);
-            if(pontos > 0 && pontos % 100 === 0) {
-                nivel++;
-                nivelText.setText('NÍVEL: ' + nivel);
+            if(pontos % 100 === 0) {
+                nivel++; nivelText.setText('NÍVEL: ' + nivel);
                 adicionarNPC(this, Math.random() > 0.5 ? 'npcRed' : 'npcBlack');
                 spawnItem(powerUps, 'speedPower');
             }
@@ -397,33 +339,20 @@
 
         function levarDano(p, i) {
             if(p.isInvincible) return;
-            vidas--;
-            vidasText.setText('❤️ '.repeat(Math.max(0, vidas)));
-            
+            vidas--; vidasText.setText('❤️ '.repeat(Math.max(0, vidas)));
             if(vidas <= 0) {
-                gameOver = true;
-                this.physics.pause();
-                
-                if (isTouchDevice) {
-                    msgText.setText('VOCÊ MORREU!').setVisible(true);
-                    document.getElementById('btn-reset').style.display = 'flex';
-                } else {
-                    msgText.setText('VOCÊ MORREU!\nESPAÇO PARA REINICIAR').setVisible(true);
-                }
-
+                gameOver = true; this.physics.pause();
+                if (isTouchDevice) { msgText.setText('MORREU!').setVisible(true); document.getElementById('btn-reset').style.display = 'flex'; }
+                else msgText.setText('MORREU!\nESPAÇO PARA RECOMEÇAR').setVisible(true);
             } else {
-                fome = 100;
-                p.isInvincible = true;
-                p.setAlpha(0.5);
+                fome = 100; p.isInvincible = true; p.setAlpha(0.5);
                 this.time.delayedCall(1500, () => { p.isInvincible = false; p.setAlpha(1); });
                 if(i) p.setPosition(60, 60); 
             }
         }
 
         function pegarPowerUp(p, pw) {
-            pw.destroy();
-            player.isPowered = true;
-            player.setTint(0x00ffff);
+            pw.destroy(); player.isPowered = true; player.setTint(0x00ffff);
             this.time.delayedCall(6000, () => { player.isPowered = false; player.clearTint(); });
         }
     </script>
