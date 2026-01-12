@@ -17,10 +17,10 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            touch-action: none; /* Impede zoom e rolagens */
+            touch-action: none; 
         }
 
-        /* Contêiner que segura o jogo para centralizar perfeitamente */
+        /* Contêiner que segura o jogo */
         #game-container {
             position: relative;
             width: 100%;
@@ -28,6 +28,14 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            /* Garante que o canvas não estoure a tela */
+            overflow: hidden; 
+        }
+
+        /* Estilo para dar destaque ao canvas do jogo (opcional, ajuda a ver o centro) */
+        canvas {
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            border-radius: 4px;
         }
 
         /* --- INTERFACE MÓVEL (HUD) --- */
@@ -37,8 +45,8 @@
             width: 100%;
             height: 100%;
             pointer-events: none; 
-            z-index: 100; /* Garante que fique ACIMA do jogo */
-            display: none; /* O JavaScript vai ligar isso se for touch */
+            z-index: 100;
+            display: none;
         }
 
         .btn {
@@ -56,24 +64,28 @@
             cursor: pointer;
             touch-action: manipulation;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            /* Transição suave ao apertar */
+            transition: transform 0.1s, background 0.1s;
         }
         
-        /* Efeito visual ao tocar */
         .btn:active { 
             background: rgba(255, 255, 255, 0.4); 
             transform: scale(0.95);
         }
 
+        /* --- AQUI ESTÁ A MUDANÇA DOS BOTÕES --- */
         #dpad {
             position: absolute;
-            bottom: 30px; /* Mais afastado da borda */
-            left: 30px;
+            /* Levantei de 30px para 120px para ficar mais confortável */
+            bottom: 120px; 
+            /* Afastei um pouco mais da esquerda também */
+            left: 40px;
             width: 160px;
             height: 160px;
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
             grid-template-rows: 1fr 1fr 1fr;
-            gap: 5px; /* Espaço entre botões */
+            gap: 5px;
         }
         
         #btn-up { grid-column: 2; grid-row: 1; }
@@ -94,7 +106,8 @@
 
         #btn-reset {
             position: absolute;
-            top: 60%;
+            /* Centralizado perfeitamente no meio da tela */
+            top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             width: 220px;
@@ -124,11 +137,9 @@
     </div>
 
     <script>
-        // --- DETECÇÃO DE DISPOSITIVO DE TOQUE (Mais robusta) ---
-        // Verifica se a tela suporta toque (celular/tablet) OU se a tela é pequena
+        // --- DETECÇÃO DE DISPOSITIVO DE TOQUE ---
         const isTouchDevice = (('ontouchstart' in window) || (navigator.maxTouchPoints > 0));
         
-        // Se for touch, mostra os controles imediatamente
         if (isTouchDevice) {
             document.getElementById('mobile-controls').style.display = 'block';
         }
@@ -138,7 +149,6 @@
 
         function setupBtn(id, dir) {
             const btn = document.getElementById(id);
-            // Previne comportamento padrão para não selecionar texto ou dar zoom
             const start = (e) => { if(e.cancelable) e.preventDefault(); setMove(dir, true); };
             const end = (e) => { if(e.cancelable) e.preventDefault(); setMove(dir, false); };
             
@@ -175,15 +185,14 @@
 
         const config = {
             type: Phaser.AUTO,
-            // Ajuste importante: define o pai para centralizar
             parent: 'game-container', 
             width: 800,
             height: 600,
             backgroundColor: '#2d3436',
             scale: {
-                // FIT garante que cabe na tela sem esticar
+                // FIT: O jogo tenta preencher o máximo possível mantendo a proporção
                 mode: Phaser.Scale.FIT,
-                // CENTER_BOTH garante que fica no meio exato
+                // CENTER_BOTH: Centraliza o canvas horizontalmente e verticalmente
                 autoCenter: Phaser.Scale.CENTER_BOTH
             },
             physics: { default: 'arcade', arcade: { debug: false } },
@@ -198,6 +207,7 @@
         let fomeText, pontosText, vidasText, nivelText, msgText;
         let currentScene = null; 
 
+        // Mapa mantido igual
         const mapaDesign = [
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
             [1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
@@ -219,6 +229,7 @@
         function preload() {
             this.load.image('boneco', 'hero_all_black.png');
             
+            // Geradores de textura mantidos
             const genTex = (key, color, w, h) => {
                 if(this.textures.exists(key)) return;
                 let canvas = this.textures.createCanvas(key, w, h);
@@ -249,7 +260,6 @@
             currentScene = this;
             fome = 100; pontos = 0; vidas = 3; nivel = 1; gameOver = false; isPaused = false;
             
-            // Garante estado inicial do botão reset
             if(isTouchDevice) document.getElementById('btn-reset').style.display = 'none';
 
             paredes = this.physics.add.staticGroup();
@@ -260,7 +270,7 @@
             });
 
             player = this.physics.add.sprite(60, 60, 'boneco').setDisplaySize(38, 38);
-            player.body.setSize(180, 220);
+            player.body.setSize(30, 30); // Ajustei hitbox para o tamanho real do sprite
             player.setCollideWorldBounds(true);
             this.physics.add.collider(player, paredes);
 
