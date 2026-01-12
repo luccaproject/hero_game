@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Hero Game - Ajustado</title>
+    <title>Hero Game - Ajustado V2</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style>
         body { 
@@ -28,11 +28,10 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            /* Garante que o canvas não estoure a tela */
             overflow: hidden; 
         }
 
-        /* Estilo para dar destaque ao canvas do jogo (opcional, ajuda a ver o centro) */
+        /* Estilo para dar destaque ao canvas do jogo */
         canvas {
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
             border-radius: 4px;
@@ -64,7 +63,6 @@
             cursor: pointer;
             touch-action: manipulation;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            /* Transição suave ao apertar */
             transition: transform 0.1s, background 0.1s;
         }
         
@@ -76,9 +74,8 @@
         /* --- AQUI ESTÁ A MUDANÇA DOS BOTÕES --- */
         #dpad {
             position: absolute;
-            /* Levantei de 30px para 120px para ficar mais confortável */
-            bottom: 120px; 
-            /* Afastei um pouco mais da esquerda também */
+            /* AUMENTEI AQUI: De 120px para 220px para subir bem mais */
+            bottom: 220px; 
             left: 40px;
             width: 160px;
             height: 160px;
@@ -106,7 +103,6 @@
 
         #btn-reset {
             position: absolute;
-            /* Centralizado perfeitamente no meio da tela */
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
@@ -190,9 +186,7 @@
             height: 600,
             backgroundColor: '#2d3436',
             scale: {
-                // FIT: O jogo tenta preencher o máximo possível mantendo a proporção
                 mode: Phaser.Scale.FIT,
-                // CENTER_BOTH: Centraliza o canvas horizontalmente e verticalmente
                 autoCenter: Phaser.Scale.CENTER_BOTH
             },
             physics: { default: 'arcade', arcade: { debug: false } },
@@ -207,7 +201,6 @@
         let fomeText, pontosText, vidasText, nivelText, msgText;
         let currentScene = null; 
 
-        // Mapa mantido igual
         const mapaDesign = [
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
             [1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
@@ -229,7 +222,6 @@
         function preload() {
             this.load.image('boneco', 'hero_all_black.png');
             
-            // Geradores de textura mantidos
             const genTex = (key, color, w, h) => {
                 if(this.textures.exists(key)) return;
                 let canvas = this.textures.createCanvas(key, w, h);
@@ -270,7 +262,8 @@
             });
 
             player = this.physics.add.sprite(60, 60, 'boneco').setDisplaySize(38, 38);
-            player.body.setSize(30, 30); // Ajustei hitbox para o tamanho real do sprite
+            // Mantive a hitbox corrigida
+            player.body.setSize(30, 30); 
             player.setCollideWorldBounds(true);
             this.physics.add.collider(player, paredes);
 
