@@ -269,7 +269,7 @@
                 });
             });
 
-            player = this.physics.add.sprite(60, 60, 'boneco').setDisplaySize(190, 250);
+            player = this.physics.add.sprite(60, 60, 'boneco').setDisplaySize(38, 38);
             player.body.setSize(190, 250); // Ajustei hitbox para o tamanho real do sprite
             player.setCollideWorldBounds(true);
             this.physics.add.collider(player, paredes);
